@@ -44,6 +44,7 @@ class BroadlinkRMPlatform extends HomebridgePlatform {
         'switch-repeat': Accessory.SwitchRepeat,
         'fan': Accessory.Fan,
         'light': Accessory.Light,
+        'light-toggle': Accessory.LightToggle,
         'window-covering': Accessory.WindowCovering,
       }
 
