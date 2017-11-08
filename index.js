@@ -48,6 +48,8 @@ class BroadlinkRMPlatform extends HomebridgePlatform {
         'window-covering': Accessory.WindowCovering,
       }
 
+      console.log('light-toggle:', classTypes['light-toggle'])
+
       if (!classTypes[accessory.type]) throw new Error(`homebridge-broadlink-rm doesn't support accessories of type "${accessory.type}".`);
 
       const homeKitAccessory = new classTypes[accessory.type](log, accessory);

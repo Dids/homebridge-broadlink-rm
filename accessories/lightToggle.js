@@ -17,13 +17,13 @@ class LightToggleAccessory extends BroadlinkRMAccessory {
           log(`${name} setLightState: (use last known brightness)`);
 
           setTimeout(() => {
-            this.lightService.setCharacteristic(Characteristic.Brightness, state.brightness);
+            this.lightToggleService.setCharacteristic(Characteristic.Brightness, state.brightness);
           }, 200); // Add delay to prevent race conditions within Homekit
         } else {
           log(`${name} setLightState: (use default brightness)`);
 
           setTimeout(() => {
-            this.lightService.setCharacteristic(Characteristic.Brightness, defaultBrightness);
+            this.lightToggleService.setCharacteristic(Characteristic.Brightness, defaultBrightness);
           }, 200); // Add delay to prevent race conditions within Homekit
         }
       }
@@ -119,7 +119,7 @@ class LightToggleAccessory extends BroadlinkRMAccessory {
     if (disableAutomaticOff) return;
 
     this.autoOffTimeout = setTimeout(() => {
-      this.lightService.setCharacteristic(Characteristic.On, 0);
+      this.lightToggleService.setCharacteristic(Characteristic.On, 0);
     }, onDuration * 1000)
   }
 
@@ -148,7 +148,7 @@ class LightToggleAccessory extends BroadlinkRMAccessory {
       setValuePromise: this.setLightState.bind(this)
     });
 
-    this.lightService = service;
+    this.lightToggleService = service;
 
     services.push(service);
 
