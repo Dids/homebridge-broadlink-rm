@@ -1,60 +1,109 @@
-const BroadlinkJS = require('broadlinkjs-rm');
-const broadlink = new BroadlinkJS()
+const broadlink = require('./broadlink')
+const delayForDuration = require('./delayForDuration')
 
-const discoveredDevices = {};
+const pingFrequency = 5000; // 5s
 
-const limit = 5;
+let ping
 
-let discovering = false;
+const setupPing = (log) => {
+  if (ping) return
 
-const discoverDevices = (count = 0) => {
-  discovering = true;
-
-  if (count >= 5) {
-    discovering = false;
-
-    return;
+  try {
+    ping = require('net-ping').createSession({
+      retries: 3,
+      timeout: 2000
+    });
+  } catch (err) {
+    if (err.message.includes('was compiled against a different Node.js version')) {
+      log(`Broadlink RM won't detect device failures due to a version conflict with "net-ping". Please run "npm r homebridge-broadlink-rm -g && npm i homebridge-broadlink-rm -g" to resolve.`);
+    } else if (err.message.includes('Operation not permitted')) {
+      log(`Broadlink RM won't detect device failures due to a permissions issues with "net-ping".\n\nTo fix:\n\n 1. Run "which node" to determine your node path.\n2. Run "sudo setcap cap_net_raw+ep /path/to/node".\n\nNote: Replacing /path/to/node with the path you found in the first step.`);
+    } else {
+      log(err.message);
+    }
   }
-
-  broadlink.discover();
-  count++;
-
-  setTimeout(() => {
-    discoverDevices(count);
-  }, 5 * 1000)
 }
 
-discoverDevices();
+const startPing = (device, log) => {
+  setupPing(log)
 
-broadlink.on('deviceReady', (device) => {
-  const macAddressParts = device.mac.toString('hex').match(/[\s\S]{1,2}/g) || []
-  const macAddress = macAddressParts.join(':')
-  device.host.macAddress = macAddress
+  if (!ping) return
 
-  if (discoveredDevices[device.host.address] || discoveredDevices[device.host.macAddress]) return;
+  device.state = 'unknown';
 
-  console.log(`Discovered Broadlink RM device at ${device.host.address} (${device.host.macAddress})`)
+  setInterval(() => {
+    ping.pingHost(device.host.address, (error, target) => {
+      if (error && device.state === 'active') {
+        log(`Broadlink RM device at ${device.host.address} (${device.host.macAddress || ''}) is no longer reachable. (${target}, ${error.message})`);
+
+        device.state = 'inactive';
+      } else if (!error && device.state !== 'active') {
+        if (device.state === 'inactive') log(`Broadlink RM device at ${device.host.address} (${device.host.macAddress || ''}) has been re-discovered.`);
+
+        device.state = 'active';
+      }
+    })
+  }, pingFrequency);
+}
+
+const discoveredDevices = {};
+const manualDevices = {};
+let discoverDevicesInterval;
+
+const discoverDevices = (automatic = true, log, debug, deviceDiscoveryTimeout = 60) => {
+  broadlink.log = log
+  broadlink.debug = debug
+
+  if (automatic) {
+    this.discoverDevicesInterval = setInterval(() => {
+      broadlink.discover();
+    }, 2000);
+
+    delayForDuration(deviceDiscoveryTimeout).then(() => {
+      clearInterval(this.discoverDevicesInterval);
+    });
+
+    broadlink.discover();
+  }
+
+  broadlink.on('deviceReady', (device) => {
+    const macAddressParts = device.mac.toString('hex').match(/[\s\S]{1,2}/g) || []
+    const macAddress = macAddressParts.join(':')
+    device.host.macAddress = macAddress
+
+    log(`\x1b[35m[INFO]\x1b[0m Discovered ${device.model} (${device.type.toString(16)}) at ${device.host.address} (${device.host.macAddress})`)
+    addDevice(device)
+
+    startPing(device, log)
+  })
+}
+
+const addDevice = (device) => {
+  if (!device.isUnitTestDevice && (discoveredDevices[device.host.address] || discoveredDevices[device.host.macAddress])) return;
 
   discoveredDevices[device.host.address] = device;
   discoveredDevices[device.host.macAddress] = device;
-})
+}
 
 const getDevice = ({ host, log, learnOnly }) => {
   let device;
 
   if (host) {
     device = discoveredDevices[host];
+
+    // Create manual device
+    if (!device && !manualDevices[host]) {
+      const device = { host: { address: host } };
+      manualDevices[host] = device;
+
+      startPing(device, log)
+    }
   } else { // use the first one of no host is provided
     const hosts = Object.keys(discoveredDevices);
     if (hosts.length === 0) {
-      log(`Send data (no devices found)`);
-      if (!discovering) {
-        log(`Attempting to discover RM devices for 5s`);
+      // log(`Send data (no devices found)`);
 
-        discoverDevices()
-      }
-
-      return
+      return;
     }
 
     // Only return device that can Learn Code codes
@@ -69,25 +118,15 @@ const getDevice = ({ host, log, learnOnly }) => {
         }
       }
 
-      if (!device) log(`Learn Code (no device found at ${host})`)
-      if (!device && !discovering) {
-        log(`Attempting to discover RM devices for 5s`);
-
-        discoverDevices()
-      }
+      if (!device) log(`Learn Code (no device found at ${host})`);
     } else {
       device = discoveredDevices[hosts[0]];
 
       if (!device) log(`Send data (no device found at ${host})`);
-      if (!device && !discovering) {
-        log(`Attempting to discover RM devices for 5s`);
-
-        discoverDevices()
-      }
     }
   }
 
   return device;
 }
 
-module.exports = getDevice;
+module.exports = { getDevice, discoverDevices, addDevice };

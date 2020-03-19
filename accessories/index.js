@@ -1,27 +1,33 @@
 const AirCon = require('./aircon');
-const Channel = require('./channel');
+const AirPurifier = require('./air-purifier');
+const HumidifierDehumidifier = require('./humidifier-dehumidifier');
 const LearnCode = require('./learnCode');
+const Outlet = require('./outlet');
 const Switch = require('./switch');
 const SwitchMulti = require('./switchMulti');
 const SwitchMultiRepeat = require('./switchMultiRepeat');
 const SwitchRepeat = require('./switchRepeat');
-const UpDown = require('./upDown');
 const Fan = require('./fan');
 const GarageDoorOpener = require('./garageDoorOpener');
+const Lock = require('./lock');
 const Light = require('./light');
+const Window = require('./window');
 const WindowCovering = require('./windowCovering');
 
 module.exports = {
   AirCon,
-  Channel,
+  AirPurifier,
+  HumidifierDehumidifier,
   LearnCode,
   Switch,
   SwitchMulti,
   SwitchMultiRepeat,
+  Outlet,
   SwitchRepeat,
-  UpDown,
   Fan,
   GarageDoorOpener,
+  Lock,
   Light,
+  Window,
   WindowCovering
 }
